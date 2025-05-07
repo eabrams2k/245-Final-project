@@ -1,0 +1,120 @@
+#Eric Abrams Final project
+#This code will be for thj
+
+import board
+import time
+import pwmio
+import math
+
+MAX_DUTY_CYCLE = 65535
+
+period = 1
+
+#sets pwm mode
+x_pwm = pwmio.PWMOut(board.GP0, duty_cycle = 0, frequency = 100000)
+y_pwm = pwmio.PWMOut(board.GP1, duty_cycle = 0, frequency = 100000)
+
+
+setsize = 0.75
+
+verticescube = [(-1 * setsize, -1 * setsize, -1 * setsize),(1 * setsize, -1 * setsize, -1 * setsize),(1 * setsize, 1 * setsize, -1 * setsize),
+    (-1 * setsize, 1 * setsize, -1 * setsize),
+    (-1 * setsize, -1 * setsize, 1 * setsize),
+    (1 * setsize, -1 * setsize, 1 * setsize),
+    (1 * setsize, 1 * setsize, 1 * setsize),
+    (-1 * setsize, 1 * setsize, 1 * setsize)]
+
+edgescube = [(0, 1), (1, 2), (2, 3), (3, 0), (4, 5), (5, 6), (6, 7), (7, 4),
+             (0, 4), (1, 5), (2, 6), (3, 7)]
+
+
+verticespyramid = [(-1 * setsize, -1 * setsize, -1 * setsize),(1 * setsize, -1 * setsize, -1 * setsize),(1 * setsize, 1 * setsize, -1 * setsize),
+    (-1 * setsize, 1 * setsize, -1 * setsize), (0 , 0, 1 * setsize)]
+
+edgespyramid = [(0,1), (1, 2), (2, 3), (3, 0), (0, 4), (1, 4), (2, 4), (3, 4)]
+
+
+#In theory I can make any shape where I can label the vertices with
+#arbitrary cordinates
+
+
+#returns the new x, y, z
+def rotate(vertex, a, b):
+    x, y, z, = vertex
+
+    #transformation matrix for Y-axis rotation 
+
+   
+    xz = x * math.cos(b) - z * math.sin(b)
+    zz = x * math.sin(b) + z * math.cos(b)
+
+    #transformation matrix around x axis
+
+    yz = y * math.cos(a) - zz * math.sin(a)
+    zz2 = y * math.sin(a) + zz * math.cos(a)
+
+    return (xz, yz, zz2)
+    
+
+
+def project(vertex, distance):
+    x, y, z = vertex
+    a = distance / (distance - z)
+    xprime = x * a #The x' and y' are the new projected coordinates on the 2d surface
+    yprime = y * a
+    return (xprime, yprime)
+
+
+def voltage_to_duty_cycle(voltage):
+    return int((voltage / 3.3) * MAX_DUTY_CYCLE)
+
+
+
+
+#This function is actually going to draw the shapes on the scope
+def draw_shape(vertices, edges):
+
+    anglex = 0
+    angley = 0
+
+
+    
+    while True:
+
+        rotated = []
+        for v in vertices:
+            rotated.append(rotate(v, anglex, angley))
+        
+        projected = [project(v, 10) for v in rotated]
+                
+        for edge in edgescube:
+            v1 = projected[edge[0]]
+            v2 = projected[edge[1]]
+
+            for t in range(101):
+                t = t / 100
+                #making edges smooth
+                x_val = (1 - t) * v1[0] + t * v2[0]
+                y_val = (1 - t) * v1[1] + t * v2[1]
+                
+                #We need to recenter the voltages to be all above 0, 1.65 is half of 3.3
+                #so this just shifts every voltage to be strictly positive
+                x_voltage = x_val + 1.65
+                y_voltage = y_val + 1.65
+                x_pwm.duty_cycle = voltage_to_duty_cycle(x_voltage)
+                y_pwm.duty_cycle = voltage_to_duty_cycle(y_voltage)
+        anglex += 0.02
+        angly += 0.02
+
+def main():
+    shape = input("Hello, press 1 for still cube, or 2 for still pyramid: ")
+    if shape == "1":
+        draw_shape(verticescube, edgescube)
+    elif shape == "2":
+        draw_shape(verticespyramid, edgespyramid)
+    else:
+        print("wrong answer")
+
+if __name__ == "__main__":
+    main()
+
