@@ -1,0 +1,98 @@
+#Eric Abrams Final project
+#This code will be for thj
+
+import board
+import time
+import pwmio
+import math
+
+MAX_DUTY_CYCLE = 65535
+
+period = 1
+
+#sets pwm mode
+x_pwm = pwmio.PWMOut(board.GP0, duty_cycle = 0, frequency = 100000)
+y_pwm = pwmio.PWMOut(board.GP1, duty_cycle = 0, frequency = 100000)
+
+
+setsize = 0.75
+
+verticescube = [(-1 * setsize, -1 * setsize, -1 * setsize),(1 * setsize, -1 * setsize, -1 * setsize),(1 * setsize, 1 * setsize, -1 * setsize),
+    (-1 * setsize, 1 * setsize, -1 * setsize),
+    (-1 * setsize, -1 * setsize, 1 * setsize),
+    (1 * setsize, -1 * setsize, 1 * setsize),
+    (1 * setsize, 1 * setsize, 1 * setsize),
+    (-1 * setsize, 1 * setsize, 1 * setsize)]
+
+edgescube = [(0, 1), (1, 2), (2, 3), (3, 0), (4, 5), (5, 6), (6, 7), (7, 4),
+             (0, 4), (1, 5), (2, 6), (3, 7)]
+
+
+verticespyramid = [(-1 * setsize, -1 * setsize, -1 * setsize),(1 * setsize, -1 * setsize, -1 * setsize),(1 * setsize, 1 * setsize, -1 * setsize),
+    (-1 * setsize, 1 * setsize, -1 * setsize), (0 , 0, 1 * setsize)]
+
+edgespyramid = [(0,1), (1, 2), (2, 3), (3, 0), (0, 4), (1, 4), (2, 4), (3, 4)]
+
+#returns the new x, y, z
+def rotate(vertex, angle):
+    x, y, z = vertex
+    #setting a variable for sin and cosine made a distinguishable difference in speed
+    sin_angle = math.sin(angle)
+    cos_angle = math.cos(angle)
+    #matrix multiplication that only my roommate fully understands
+    x2 = x * cos_angle - z * sin_angle
+    z2 = x * sin_angle + z * cos_angle
+
+    y2 = y * cos_angle - z2 * sin_angle
+    z3 = y * sin_angle + z2 * cos_angle
+
+    return (x2, y2, z3)
+
+
+def project(vertex, distance):
+    x, y, z = vertex
+    a = distance / (distance - z)
+    xprime = x * a #The x' and y' are the new projected coordinates on the 2d surface
+    yprime = y * a
+    return (xprime, yprime)
+
+
+def voltage_to_duty_cycle(voltage):
+    return int((voltage / 3.3) * MAX_DUTY_CYCLE)
+
+
+
+
+
+def draw_shape(vertices, edges):
+    projected = [project(v, 10) for v in vertices]
+    while True:
+                
+        for edge in edgescube:
+            v1 = projected[edge[0]]
+            v2 = projected[edge[1]]
+
+            for t in range(101):
+                t = t / 100
+                #interpolates between vertices to make smooth edge
+                x_val = (1 - t) * v1_proj[0] + t * v2_proj[0]
+                y_val = (1 - t) * v1_proj[1] + t * v2_proj[1]
+                
+                #We need to recenter the voltages to be all above 0, 1.65 is half of 3.3
+                #so this just shifts every voltage to be strictly positive
+                x_voltage = x_val + 1.65
+                y_voltage = y_val + 1.65
+                x_pwm.duty_cycle = voltage_to_duty_cycle(x_voltage)
+                y_pwm.duty_cycle = voltage_to_duty_cycle(y_voltage)
+
+def main():
+    shape = input("Hello, press 1 for still cube, or 2 for still pyramid: ")
+    if shape == "1":
+        draw_shape(verticescube, edgescube)
+    elif shape == "2":
+        draw_shape(verticespyramid, edgespyramid)
+    else:
+        print("wrong answer")
+
+if __name__ == "__main__":
+    main()
