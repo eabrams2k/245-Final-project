@@ -68,7 +68,8 @@ def project(vertex, distance):
     return (xprime, yprime)
 
 
-
+def easing_function(time):
+    return 0.5 * (1 - math.cos(math.pi * t))
 
 
 #This function is actually going to draw the shapes on the scope
@@ -90,9 +91,10 @@ def draw_shape(vertices, edges):
 
             for t in range(101):
                 t = t / 100
+                eased = easing_function(t)
                 #making edges smooth
-                x_val = (1 - t) * v1[0] + t * v2[0]
-                y_val = (1 - t) * v1[1] + t * v2[1]
+                x_val = (1 - eased) * v1[0] + eased * v2[0]
+                y_val = (1 - eased) * v1[1] + eased * v2[1]
                 
                 #We need to recenter the voltages to be all above 0, 1.65 is half of 3.3
                 #so this just shifts every voltage to be strictly positive
@@ -114,6 +116,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
 
