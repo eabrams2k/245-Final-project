@@ -1,79 +1,119 @@
+#Eric Abrams Final project
+#This code will be for rotating 3D objects. More lists of vertices and edges may be added
+#in the future
+
 import board
 import time
 import pwmio
 import math
 
-MAX_DUTY_CYCLE = 65535
-rate = 100000
-period = 1
+maxd= 65535
 
 #sets pwm mode
-x_pwm = pwmio.PWMOut(board.GP0, duty_cycle = 0, frequency = rate)
-y_pwm = pwmio.PWMOut(board.GP1, duty_cycle = 0, frequency = rate)
+x_pwm = pwmio.PWMOut(board.GP0, duty_cycle = 0, frequency = 100000)
+y_pwm = pwmio.PWMOut(board.GP1, duty_cycle = 0, frequency = 100000)
 
-#scales size of the cube
-scaling_factor = 0.75
 
-vertices = [
-    (-1 * scaling_factor, -1 * scaling_factor, -1 * scaling_factor),
-    (1 * scaling_factor, -1 * scaling_factor, -1 * scaling_factor),
-    (1 * scaling_factor, 1 * scaling_factor, -1 * scaling_factor),
-    (-1 * scaling_factor, 1 * scaling_factor, -1 * scaling_factor),
-    (-1 * scaling_factor, -1 * scaling_factor, 1 * scaling_factor),
-    (1 * scaling_factor, -1 * scaling_factor, 1 * scaling_factor),
-    (1 * scaling_factor, 1 * scaling_factor, 1 * scaling_factor),
-    (-1 * scaling_factor, 1 * scaling_factor, 1 * scaling_factor)
-]
+def voltage_to_duty_cycle(voltage):
+    return int((voltage / 3.3) * maxd)
+#The code above is just copying the PWM stuff from previous labs
 
-edges = [
-    (0, 1), (1, 2), (2, 3), (3, 0),
-    (4, 5), (5, 6), (6, 7), (7, 4),
-    (0, 4), (1, 5), (2, 6), (3, 7)
-]
+setsize = 0.75
+
+verticescube = [(-1 * setsize, -1 * setsize, -1 * setsize),(1 * setsize, -1 * setsize, -1 * setsize),(1 * setsize, 1 * setsize, -1 * setsize),
+    (-1 * setsize, 1 * setsize, -1 * setsize),
+    (-1 * setsize, -1 * setsize, 1 * setsize),
+    (1 * setsize, -1 * setsize, 1 * setsize),
+    (1 * setsize, 1 * setsize, 1 * setsize),
+    (-1 * setsize, 1 * setsize, 1 * setsize)]
+
+edgescube = [(0, 1), (1, 2), (2, 3), (3, 0), (4, 5), (5, 6), (6, 7), (7, 4),
+             (0, 4), (1, 5), (2, 6), (3, 7)]
+
+
+verticespyramid = [(-1 * setsize, -1 * setsize, -1 * setsize),(1 * setsize, -1 * setsize, -1 * setsize),(1 * setsize, 1 * setsize, -1 * setsize),
+    (-1 * setsize, 1 * setsize, -1 * setsize), (0 , 0, 1 * setsize)]
+
+edgespyramid = [(0,1), (1, 2), (2, 3), (3, 0), (0, 4), (1, 4), (2, 4), (3, 4)]
+
+
+#In theory I can make any shape where I can label the vertices with
+#arbitrary cordinates. 
+
 
 #returns the new x, y, z
-def rotate(vertex, angle):
+def rotate(vertex, a, b):
+    x, y, z, = vertex
+
+    #transformation matrix for Y-axis rotation 
+
+   
+    xz = x * math.cos(b) - z * math.sin(b)
+    zz = x * math.sin(b) + z * math.cos(b)
+
+    #transformation matrix around x axis
+
+    yz = y * math.cos(a) - zz * math.sin(a)
+    zz2 = y * math.sin(a) + zz * math.cos(a)
+
+    return (xz, yz, zz2)
+    
+
+
+def project(vertex, distance):
     x, y, z = vertex
-    #setting a variable for sin and cosine made a distinguishable difference in speed
-    sin_angle = math.sin(angle)
-    cos_angle = math.cos(angle)
-    #matrix multiplication that only my roommate fully understands
-    x2 = x * cos_angle - z * sin_angle
-    z2 = x * sin_angle + z * cos_angle
+    a = distance / (distance - z)
+    xprime = x * a #The x' and y' are the new projected coordinates on the 2d surface
+    yprime = y * a
+    return (xprime, yprime)
 
-    y2 = y * cos_angle - z2 * sin_angle
-    z3 = y * sin_angle + z2 * cos_angle
 
-    return (x2, y2, z3)
 
-#returns the flat projection of the 3d object
-def project(vertex, viewer_distance=10):
-    x, y, z = vertex
-    factor = viewer_distance / (viewer_distance - z)
-    x_proj = x * factor
-    y_proj = y * factor
-    return (x_proj, y_proj)
 
-#voltage to necessary duty cycle for pwm
-def voltage_to_duty_cycle(voltage):
-    return int((voltage / 3.3) * MAX_DUTY_CYCLE)
 
-angle = 0.0
-while True:
-    #increments angle, can be sped up with larger steps
-    angle += 0.01
-    for edge in edges:
-        v1_proj = project(rotate(vertices[edge[0]], angle))
-        v2_proj = project(rotate(vertices[edge[1]], angle))
+#This function is actually going to draw the shapes on the scope
+def draw_shape(vertices, edges):
 
-        for t in range(101):
-            t = t / 100
-            #interpolates between vertices to make smooth edge
-            x_val = (1 - t) * v1_proj[0] + t * v2_proj[0]
-            y_val = (1 - t) * v1_proj[1] + t * v2_proj[1]
-            #shifts cube up and to the right
-            x_voltage = x_val + 1.65
-            y_voltage = y_val + 1.65
-            x_pwm.duty_cycle = voltage_to_duty_cycle(x_voltage)
-            y_pwm.duty_cycle = voltage_to_duty_cycle(y_voltage)
+    anglex = 0
+    angley = 0
+    while True:
+
+        rotated = []
+        for v in vertices:
+            rotated.append(rotate(v, anglex, angley))
+        
+        projected = [project(v, 10) for v in rotated]
+                
+        for edge in edges:
+            v1 = projected[edge[0]]
+            v2 = projected[edge[1]]
+
+            for t in range(101):
+                t = t / 100
+                #making edges smooth
+                x_val = (1 - t) * v1[0] + t * v2[0]
+                y_val = (1 - t) * v1[1] + t * v2[1]
+                
+                #We need to recenter the voltages to be all above 0, 1.65 is half of 3.3
+                #so this just shifts every voltage to be strictly positive
+                x_voltage = x_val + 1.65
+                y_voltage = y_val + 1.65
+                x_pwm.duty_cycle = voltage_to_duty_cycle(x_voltage)
+                y_pwm.duty_cycle = voltage_to_duty_cycle(y_voltage)
+        anglex += 0.02
+        angley += 0.02
+
+def main():
+    shape = input("Hello, press 1 for a moving cube, or 2 for moving pyramid: ")
+    if shape == "1":
+        draw_shape(verticescube, edgescube)
+    elif shape == "2":
+        draw_shape(verticespyramid, edgespyramid)
+    else:
+        print("wrong answer")
+
+if __name__ == "__main__":
+    main()
+
+
 
